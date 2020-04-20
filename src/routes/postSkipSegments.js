@@ -10,7 +10,6 @@ var isoDurations = require('iso8601-duration');
 var getHash = require('../utils/getHash.js');
 var getIP = require('../utils/getIP.js');
 var getFormattedTime = require('../utils/getFormattedTime.js');
-const fetch = require('node-fetch');
 
 // TODO: might need to be a util
 //returns true if the user is considered trustworthy
@@ -111,26 +110,32 @@ async function autoModerateSubmission(submission, callback) {
                 if ((submission.endTime - submission.startTime) > (duration/100)*80) {
                     return "Sponsor segment is over 80% of the video.";
                 } else {
-                  let overlap = false;
-                  nb_predictions = fetch("https://ai.neuralblock.app/api/getSponsorSegments?vid=" + submission.videoID).then().then();
-                  for (nb_seg in nb_predictions.sponsorSegments){
-                    let head = 0;
-                    let tail = 0;
-                    // If there's an overlap, find the percentage of overlap.
-                    if (submission.startTime <= nb_seg[1] && nb_seg[0] <= submission.endTime){
-                      head = Math.max(submission.startTime, nb_seg[0]);
-                      tail = Math.min(submission.endTime, nb_seg[1]);
-                    }
-                    if ((tail-head)/(nb_seg[1]-nb_seg[0]) > 0.65){
-                      overlap = true;
-                      break;
-                    }
-                  }
-                  if (overlap){
-                    return "Sponsor segment has passed checks.";
-                  } else{
-                    return "Sponsor segment doesn't have at least 65% match.";
-                  }
+                  request.get("https://ai.neuralblock.app/api/getSponsorSegments?vid=" + submission.videoID, null,
+                    (err, res, body) => {
+                      // Continue on if NB failed
+                      if (err) return false;
+                      let overlap = false;
+                      let nb_predictions = body;
+
+                      for (nb_seg in nb_predictions.sponsorSegments){
+                        let head = 0;
+                        let tail = 0;
+                        // If there's an overlap, find the percentage of overlap.
+                        if (submission.startTime <= nb_seg[1] && nb_seg[0] <= submission.endTime){
+                          head = Math.max(submission.startTime, nb_seg[0]);
+                          tail = Math.min(submission.endTime, nb_seg[1]);
+                        }
+                        if ((tail-head)/(nb_seg[1]-nb_seg[0]) > 0.65){
+                          overlap = true;
+                          break;
+                        }
+                      }
+                      if (overlap){
+                        return false;
+                      } else{
+                        return "Sponsor segment doesn't have at least 65% match with NB.";
+                      }
+                    });
                 }
             }
         }

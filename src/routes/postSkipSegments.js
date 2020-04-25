@@ -113,11 +113,12 @@ async function autoModerateSubmission(submission, callback) {
                   request.get("https://ai.neuralblock.app/api/getSponsorSegments?vid=" + submission.videoID, null,
                     (err, res, body) => {
                       // Continue on if NB failed
-                      if (err) return false;
+                      if (res.statusCode === 500) return false;
+                      // Otherwise check with NB
                       let overlap = false;
-                      let nb_predictions = body;
+                      let nb_predictions = JSON.parse(body);
 
-                      for (nb_seg in nb_predictions.sponsorSegments){
+                      for (const nb_seg of nb_predictions.sponsorSegments){
                         let head = 0;
                         let tail = 0;
                         // If there's an overlap, find the percentage of overlap.
